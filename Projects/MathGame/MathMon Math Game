@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathMon — Battle Prototype v2.3 (FINAL)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #e7f0ff;
+            touch-action: manipulation;
+        }
+        .font-pixel {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .game-container {
+            border: 8px solid #303952;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2), inset 0 0 15px rgba(0,0,0,0.3);
+        }
+        
+        /* --- ENHANCED STABLE BACKGROUNDS --- */
+        .battle-scene{
+          position: relative;
+          overflow: hidden;
+          border-radius: 12px;
+        }
+        .bg-grass {
+            background: linear-gradient(to bottom, #87CEEB 60%, #78C850 60%);
+        }
+        .bg-cave {
+            background: linear-gradient(to bottom, #706050 60%, #A18072 60%);
+        }
+        .bg-volcano {
+            background: linear-gradient(to bottom, #2c3e50 60%, #e74c3c 60%);
+        }
+        .bg-legendary {
+             background: linear-gradient(to bottom, #4834d4 60%, #130f40 60%);
+        }
+        .bg-reading {
+            background: linear-gradient(135deg, #f3a683, #f7d794);
+        }
+        /* Themed Details */
+        .battle-scene::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .bg-grass::before {
+            background-image: radial-gradient(circle, #ffecb3 2px, transparent 2px), radial-gradient(circle, #ffecb3 2px, transparent 2px);
+            background-size: 50px 50px, 70px 70px;
+            background-position: 0 0, 35px 35px;
+            opacity: 0.5;
+            animation: floating-particles 10s linear infinite;
+        }
+        .bg-cave::before {
+            background-image: radial-gradient(circle, #a7d8de 2px, transparent 2px);
+            background-size: 60px 60px;
+            opacity: 0.6;
+            animation: floating-particles 15s linear infinite;
+        }
+        .bg-volcano::before {
+            background-image: radial-gradient(circle, #f9a825 3px, transparent 3px);
+            background-size: 40px 40px;
+            opacity: 0.7;
+            animation: rising-embers 5s linear infinite;
+        }
+        .bg-legendary::before {
+            background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.8;
+            animation: twinkling-stars 3s linear infinite;
+        }
+        @keyframes floating-particles { 0% { transform: translateY(0); } 100% { transform: translateY(-100px); } }
+        @keyframes rising-embers { 0% { transform: translateY(0); opacity: 0.7; } 100% { transform: translateY(-150px); opacity: 0; } }
+        @keyframes twinkling-stars { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.2; } }
+
+
+        .mathmon-sprite {
+            filter: drop-shadow(4px 4px 3px rgba(0,0,0,0.4));
+            transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+        }
+        .attack-anim { animation: attack-animation 0.4s ease-in-out; }
+        .hit-anim { animation: hit-animation 0.3s ease-in-out; }
+        .faint-anim { animation: faint-animation 1s forwards; }
+        .evolution-anim { animation: evolution-animation 1.5s ease-in-out; }
+
+        @keyframes attack-animation { 50% { transform: translate(-10px, -5px) scale(1.1); } }
+        @keyframes hit-animation { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes faint-animation { to { opacity: 0; transform: translateY(40px); } }
+        @keyframes evolution-animation {
+            0%, 100% { filter: drop-shadow(3px 3px 2px #fff) brightness(1); transform: scale(1); }
+            10%, 30%, 50%, 70%, 90% { filter: drop-shadow(3px 3px 15px #fff) brightness(2.5); transform: scale(1.1); }
+            20%, 40%, 60%, 80% { filter: drop-shadow(3px 3px 2px #fff) brightness(0.5); transform: scale(0.95); }
+        }
+        .crit-hit-text { animation: crit-hit-fade 1s ease-out forwards; }
+        @keyframes crit-hit-fade {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+
+        .health-bar-inner { transition: width 0.5s ease-in-out; }
+        .btn-move, .btn-action, .starter-card { transition: all 0.2s ease-in-out; }
+        .btn-move:active, .btn-action:active { transform: scale(0.95); box-shadow: inset 2px 2px 4px rgba(0,0,0,0.2); }
+        .starter-card:hover, .btn-action:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
+        .starter-card.selected {
+            border-color: #fbc531;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #fbc531;
+        }
+        .reading-option:hover { background-color: #feca57; }
+        .hidden { display: none; }
+        .letter-scramble-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+            min-height: 50px;
+        }
+        .letter-dropzone {
+            width: 45px;
+            height: 45px;
+            border: 2px dashed #a18072;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.2);
+        }
+        .letter-tile {
+            width: 40px;
+            height: 40px;
+            background-color: #feca57;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        .letter-tile.placed {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 md:p-4">
+
+    <div id="game-wrapper" class="w-full max-w-2xl mx-auto relative">
+        <!-- HOME BUTTON -->
+        <button id="home-btn" onclick="goHome()" class="absolute -top-2 -right-2 bg-yellow-400 text-black font-bold p-2 rounded-full text-xs z-20 hidden h-10 w-10 font-pixel border-2 border-yellow-600">H</button>
+
+        <!-- CRITICAL HIT OVERLAY -->
+        <div id="crit-overlay" class="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+             <h2 class="font-pixel text-5xl text-yellow-400 opacity-0" style="text-shadow: 3px 3px #000;">CRITICAL HIT!</h2>
+        </div>
+
+        <!-- Mode Selection Screen -->
+        <div id="mode-select-screen" class="game-container bg-gray-800 rounded-2xl p-8 text-center text-white">
+            <h1 class="font-pixel text-3xl md:text-4xl mb-8 text-yellow-300" style="text-shadow: 2px 2px #c0392b;">Choose Your Path</h1>
+            <div class="space-y-6">
+                <button onclick="setGameMode('adventure')" class="btn-action w-full max-w-sm mx-auto bg-green-500 font-pixel p-4 rounded-lg border-b-8 border-green-700">
+                    <span class="text-xl">Adventure Mode</span>
+                    <span class="block text-xs mt-2 font-sans">Start with a partner and grow stronger! (Grades 1-3)</span>
+                </button>
+                <button onclick="setGameMode('legendary')" class="btn-action w-full max-w-sm mx-auto bg-purple-600 font-pixel p-4 rounded-lg border-b-8 border-purple-800">
+                     <span class="text-xl">Legendary Mode</span>
+                    <span class="block text-xs mt-2 font-sans">Face the ultimate challenge! (Grades 7-8)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Character Selection Screen -->
+        <div id="character-select-screen" class="game-container bg-blue-800 rounded-2xl p-6 text-center text-white hidden">
+            <h1 id="char-select-title" class="font-pixel text-2xl md:text-3xl mb-6 text-yellow-300" style="text-shadow: 2px 2px #c0392b;">Choose your Partner!</h1>
+            <div id="starter-options" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6"></div>
+            <button id="confirm-starter-btn" class="btn-action w-full max-w-xs mx-auto bg-gray-500 font-pixel p-4 rounded-lg border-b-8 border-gray-700 opacity-50 cursor-not-allowed">
+                Start Adventure
+            </button>
+        </div>
+
+        <!-- Main Menu Screen -->
+        <div id="main-menu-screen" class="game-container bg-gray-700 rounded-2xl p-6 text-white hidden">
+             <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-3">
+                    <img id="menu-sprite" class="h-16 w-16 bg-gray-800 rounded-full p-1">
+                    <div>
+                        <p id="menu-pokemon-name" class="font-bold text-xl"></p>
+                        <p id="menu-level" class="text-sm text-gray-300"></p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end">
+                    <div id="wins-display" class="font-bold text-yellow-400"></div>
+                    <div id="training-boost-display" class="text-xs text-cyan-300"></div>
+                </div>
+            </div>
+            <h1 id="challenge-title" class="font-pixel text-2xl text-center mb-6">Next Challenge</h1>
+            <div id="main-menu-buttons" class="space-y-4">
+                <button id="start-battle-btn" class="btn-action w-full bg-green-500 hover:bg-green-600 font-pixel p-4 rounded-lg border-b-8 border-green-700">
+                    Find a Battle!
+                </button>
+            </div>
+        </div>
+
+        <!-- Math Battle Screen -->
+        <div id="battle-screen" class="game-container bg-white rounded-2xl p-4 shadow-2xl hidden relative">
+            <div id="battle-scene" class="battle-scene w-full aspect-[4/3] rounded-lg mb-4 relative">
+                <img id="player-sprite" class="mathmon-sprite absolute bottom-[5%] left-[5%] h-32 w-32 md:h-40 md:w-40">
+                <img id="enemy-sprite" class="mathmon-sprite absolute top-[10%] right-[5%] h-28 w-28 md:h-36 md:w-36">
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-100 p-3 rounded-lg border-2 border-gray-300">
+                    <div class="flex justify-between items-center mb-1"><h2 id="player-name" class="font-bold text-lg"></h2><span id="player-hp-text" class="text-sm font-semibold"></span></div>
+                    <div class="w-full bg-gray-300 rounded-full h-4"><div id="player-hp-bar" class="bg-green-500 h-full rounded-full health-bar-inner"></div></div>
+                </div>
+                <div class="bg-gray-100 p-3 rounded-lg border-2 border-gray-300">
+                    <div class="flex justify-between items-center mb-1"><h2 id="enemy-name" class="font-bold text-lg"></h2><span id="enemy-hp-text" class="text-sm font-semibold"></span></div>
+                    <div class="w-full bg-gray-300 rounded-full h-4"><div id="enemy-hp-bar" class="bg-green-500 h-full rounded-full health-bar-inner"></div></div>
+                </div>
+            </div>
+            <div class="bg-gray-800 text-white p-4 rounded-lg min-h-[120px]">
+                <p id="game-message" class="text-center text-lg mb-4 h-8"></p>
+                <div id="moves-container" class="grid grid-cols-2 gap-3"></div>
+            </div>
+            
+            <div id="result-modal" class="absolute inset-0 bg-black bg-opacity-70 flex-col items-center justify-center p-4 hidden">
+                <div class="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
+                    <h3 id="result-message" class="text-4xl font-bold mb-4"></h3>
+                    <div id="result-subtext" class="text-lg mb-6 min-h-[80px]"></div>
+                    <button id="next-battle-btn" class="btn-action w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg text-2xl">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reading Quest Screen -->
+        <div id="reading-quest-screen" class="game-container bg-reading rounded-2xl p-6 shadow-2xl hidden relative text-center">
+            <h1 id="reading-title" class="font-pixel text-xl text-yellow-900 mb-2" style="text-shadow: 1px 1px #fff;">Reading Quest</h1>
+            <div class="flex justify-center items-center gap-4">
+                 <img id="reading-player-sprite" class="h-16 w-16 mathmon-sprite" alt="Player MathMon">
+                 <div id="reading-battle-hp-bars" class="hidden flex-col gap-1 w-1/3">
+                    <div class="w-full bg-gray-300 rounded-full h-3"><div id="reading-player-hp" class="bg-green-500 h-full rounded-full"></div></div>
+                    <div class="w-full bg-gray-300 rounded-full h-3"><div id="reading-enemy-hp" class="bg-red-500 h-full rounded-full"></div></div>
+                 </div>
+                 <img id="reading-guide-sprite" class="h-24 w-24 mathmon-sprite" alt="Guide MathMon">
+            </div>
+            <div id="reading-feedback" class="font-bold text-xl text-white h-8 my-2"></div>
+            <div class="bg-white/50 rounded-lg p-6 mb-6 min-h-[120px] flex items-center justify-center">
+                <p id="reading-sentence" class="text-2xl md:text-3xl text-gray-800"></p>
+                <div id="reading-spell-container" class="hidden w-full">
+                    <div id="letter-dropzones" class="letter-scramble-container"></div>
+                    <div id="letter-tiles" class="letter-scramble-container"></div>
+                    <button id="reset-letters-btn" class="btn-action bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm mt-2">Reset</button>
+                </div>
+            </div>
+            <div id="reading-options" class="grid grid-cols-1 gap-4"></div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+// --- GAME DATA ---
+const ALL_MOVES = {
+    'add-leaf': { name: 'Leaf Blade Addition', type: 'add' }, 'sub-quick': { name: 'Quick Subtraction', type: 'sub' }, 'mul-solar': { name: 'Solar Multiplication', type: 'mul' }, 'div-synthesis': { name: 'Synthesis Division', type: 'div' },
+    'add-ember': { name: 'Ember Addition', type: 'add' }, 'sub-blaze': { name: 'Blaze Kick Subtraction', type: 'sub' }, 'mul-fire': { name: 'Fire Spin Multiply', type: 'mul' }, 'div-flare': { name: 'Flare Blitz Division', type: 'div' },
+    'add-water': { name: 'Aqua Sum', type: 'add' }, 'sub-hydro': { name: 'Hydro Pump Subtraction', type: 'sub' }, 'mul-surf': { name: 'Surf Multiplication', type: 'mul' }, 'div-dive': { name: 'Dive Division', type: 'div' },
+    'add-dragon': { name: 'Dragon Rage Add', type: 'add' }, 'sub-sand': { name: 'Sand Tomb Subtract', type: 'sub' }, 'mul-outrage': { name: 'Outrage Multiply', type: 'mul' }, 'div-earthquake': { name: 'Earthquake Division', type: 'div' },
+    'add-shadow': { name: 'Shadow Ball Add', type: 'add' }, 'sub-hex': { name: 'Hex Subtraction', type: 'sub' }, 'mul-inferno': { name: 'Inferno Multiply', type: 'mul' }, 'div-dream': { name: 'Dream Eater Division', type: 'div' },
+    'add-aura': { name: 'Aura Sphere Add', type: 'add' }, 'sub-force': { name: 'Force Palm Subtract', type: 'sub'}, 'mul-bone': { name: 'Bone Rush Multiply', type: 'mul'}, 'div-close': { name: 'Close Combat Division', type: 'div'}
+};
+
+const getSpriteUrl = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+
+const MATHMONS = {
+    treecko: { id: 252, name: 'Treecko', evolutions: [ { id: 252, name: 'Treecko', hp: 100, evolutionWins: 3 }, { id: 253, name: 'Grovyle', hp: 150, evolutionWins: 7 }, { id: 254, name: 'Sceptile', hp: 200, evolutionWins: null } ], moveset: ['add-leaf', 'sub-quick', 'mul-solar', 'div-synthesis'] },
+    torchic: { id: 255, name: 'Torchic', evolutions: [ { id: 255, name: 'Torchic', hp: 110, evolutionWins: 3 }, { id: 256, name: 'Combusken', hp: 160, evolutionWins: 7 }, { id: 257, name: 'Blaziken', hp: 210, evolutionWins: null } ], moveset: ['add-ember', 'sub-blaze', 'mul-fire', 'div-flare'] },
+    mudkip: { id: 258, name: 'Mudkip', evolutions: [ { id: 258, name: 'Mudkip', hp: 120, evolutionWins: 3 }, { id: 259, name: 'Marshtomp', hp: 170, evolutionWins: 7 }, { id: 260, name: 'Swampert', hp: 220, evolutionWins: null } ], moveset: ['add-water', 'sub-hydro', 'mul-surf', 'div-dive'] },
+    gible: { id: 443, name: 'Gible', evolutions: [ { id: 443, name: 'Gible', hp: 100, evolutionWins: 4 }, { id: 444, name: 'Gabite', hp: 150, evolutionWins: 8 }, { id: 445, name: 'Garchomp', hp: 230, evolutionWins: null } ], moveset: ['add-dragon', 'sub-sand', 'mul-outrage', 'div-earthquake'] },
+    litwick: { id: 607, name: 'Litwick', evolutions: [ { id: 607, name: 'Litwick', hp: 95, evolutionWins: 3 }, { id: 608, name: 'Lampent', hp: 145, evolutionWins: 7 }, { id: 609, name: 'Chandelure', hp: 195, evolutionWins: null } ], moveset: ['add-shadow', 'sub-hex', 'mul-inferno', 'div-dream'] },
+    riolur: { id: 447, name: 'Riolu', evolutions: [ { id: 447, name: 'Riolu', hp: 100, evolutionWins: 5 }, { id: 448, name: 'Lucario', hp: 200, evolutionWins: null} ], moveset: ['add-aura', 'sub-force', 'mul-bone', 'div-close'] }
+};
+
+const LEGENDARIES = {
+    mewtwo: { id: 150, name: 'Mewtwo', hp: 250 }, lugia: { id: 249, name: 'Lugia', hp: 260 }, rayquaza: { id: 384, name: 'Rayquaza', hp: 270 },
+    groudon: { id: 383, name: 'Groudon', hp: 250 }, kyogre: { id: 382, name: 'Kyogre', hp: 250 }, dialga: { id: 483, name: 'Dialga', hp: 260 },
+    palkia: { id: 484, name: 'Palkia', hp: 260 }, giratina: { id: 487, name: 'Giratina', hp: 270 }, mew: { id: 151, name: 'Mew', hp: 300 },
+    arceus: { id: 493, name: 'Arceus', hp: 350 }
+};
+
+const READING_ADVENTURE = [
+    // Fairy Tier
+    { guide: { name: 'Jigglypuff', id: 39, hp: 30 }, quests: [{ s: ["A frog can ", " very high."], a: "jump", o: ["run", "jump", "fly"] }, { s: ["The sun is very ", " and yellow."], a: "bright", o: ["dark", "cold", "bright"] }, { s: ["You use a pencil to ", "."], a: "write", o: ["eat", "write", "sleep"] }] },
+    { guide: { name: 'Clefairy', id: 35, hp: 30 }, quests: [{ s: ["A kitten is a baby ", "."], a: "cat", o: ["dog", "fish", "cat"] }, { s: ["The opposite of hot is ", "."], a: "cold", o: ["warm", "cold", "big"] }, { s: ["You sleep in a ", " at night."], a: "bed", o: ["car", "bed", "tree"] }] },
+    { guide: { name: 'Togepi', id: 175, hp: 30 }, quests: [{ s: ["Birds can ", " in the sky."], a: "fly", o: ["swim", "fly", "crawl"] }, { s: ["A ", " has a long trunk."], a: "elephant", o: ["mouse", "lion", "elephant"] }, { s: ["The moon comes out at ", "."], a: "night", o: ["day", "night", "noon"] }] },
+    // Psychic Tier
+    { guide: { name: 'Abra', id: 63, hp: 40 }, quests: [{ s: ["A library has many ", "."], a: "books", o: ["toys", "books", "songs"] }, { s: ["You wear a coat when it is ", "."], a: "cold", o: ["sunny", "cold", "happy"] }, { s: ["A ", " tells time."], a: "clock", o: ["ruler", "clock", "chair"] }] },
+    { guide: { name: 'Ralts', id: 280, hp: 40 }, quests: [{ s: ["A fish can ", " in water."], a: "swim", o: ["run", "swim", "climb"] }, { s: ["The color of grass is ", "."], a: "green", o: ["blue", "green", "red"] }, { s: ["You use your ", " to see."], a: "eyes", o: ["nose", "eyes", "ears"] }] },
+    { guide: { name: 'Mime Jr.', id: 439, hp: 40 }, quests: [{ s: ["A ", " helps sick people."], a: "doctor", o: ["farmer", "doctor", "pilot"] }, { s: ["You eat soup with a ", "."], a: "spoon", o: ["fork", "spoon", "knife"] }, { s: ["A cow says ", "."], a: "moo", o: ["oink", "moo", "bark"] }] },
+    // Dark Tier
+    { guide: { name: 'Poochyena', id: 261, hp: 50 }, quests: [{ s: ["A spider has eight ", "."], a: "legs", o: ["arms", "legs", "wings"] }, { s: ["You can read a ", "."], a: "book", o: ["ball", "book", "lamp"] }, { s: ["A car has four ", "."], a: "wheels", o: ["doors", "wheels", "windows"] }] },
+    { guide: { name: 'Sneasel', id: 215, hp: 50 }, quests: [{ s: ["A ", " is a yellow fruit."], a: "banana", o: ["apple", "banana", "grape"] }, { s: ["A tree has a trunk and ", "."], a: "leaves", o: ["roots", "leaves", "flowers"] }, { s: ["You can ", " a picture."], a: "draw", o: ["sing", "draw", "dance"] }] },
+    { guide: { name: 'Gengar', id: 94, hp: 60 }, quests: [{ s: ["The ", " truck is big and red."], a: "fire", o: ["ice", "fire", "mail"] }, { s: ["A ", " is a place to learn."], a: "school", o: ["park", "school", "store"] }, { s: ["The ", " shines during the day."], a: "sun", o: ["moon", "sun", "star"] }] }
+];
+
+const BACKGROUNDS = ['bg-grass', 'bg-cave', 'bg-volcano', 'bg-legendary'];
+
+// --- GAME STATE ---
+let player = {};
+let enemy = {};
+let currentQuestion;
+let isPlayerTurn;
+let questionStartTime;
+let gameMode;
+let readingState = {};
+const CRIT_WINDOW_MS = 4000;
+
+// --- DOM Elements ---
+const screens = { mode: document.getElementById('mode-select-screen'), select: document.getElementById('character-select-screen'), menu: document.getElementById('main-menu-screen'), battle: document.getElementById('battle-screen'), reading: document.getElementById('reading-quest-screen') };
+const critOverlay = document.getElementById('crit-overlay').querySelector('h2');
+const starterOptionsContainer = document.getElementById('starter-options');
+const confirmStarterBtn = document.getElementById('confirm-starter-btn');
+const startBattleBtn = document.getElementById('start-battle-btn');
+const battleScene = document.getElementById('battle-scene');
+const playerNameEl = document.getElementById('player-name'), playerHpTextEl = document.getElementById('player-hp-text'), playerHpBarEl = document.getElementById('player-hp-bar'), playerSpriteEl = document.getElementById('player-sprite');
+const enemyNameEl = document.getElementById('enemy-name'), enemyHpTextEl = document.getElementById('enemy-hp-text'), enemyHpBarEl = document.getElementById('enemy-hp-bar'), enemySpriteEl = document.getElementById('enemy-sprite');
+const gameMessageEl = document.getElementById('game-message'), movesContainerEl = document.getElementById('moves-container');
+const resultModal = document.getElementById('result-modal'), resultMessageEl = document.getElementById('result-message'), resultSubtextEl = document.getElementById('result-subtext'), nextBattleBtn = document.getElementById('next-battle-btn');
+const readingTitle = document.getElementById('reading-title'), readingGuideSprite = document.getElementById('reading-guide-sprite'), readingPlayerSprite = document.getElementById('reading-player-sprite'), readingFeedback = document.getElementById('reading-feedback'), readingSentence = document.getElementById('reading-sentence'), readingOptions = document.getElementById('reading-options'), readingSpellContainer = document.getElementById('reading-spell-container'), letterDropzones = document.getElementById('letter-dropzones'), letterTiles = document.getElementById('letter-tiles'), readingBattleHpBars = document.getElementById('reading-battle-hp-bars'), readingPlayerHp = document.getElementById('reading-player-hp'), readingEnemyHp = document.getElementById('reading-enemy-hp'), resetLettersBtn = document.getElementById('reset-letters-btn');
+const trainingBoostDisplay = document.getElementById('training-boost-display');
+
+// --- Initialization & Screen Management ---
+window.goHome = () => {
+    document.getElementById('home-btn').classList.add('hidden');
+    showScreen('mode');
+}
+
+window.setGameMode = (mode) => {
+    gameMode = mode;
+    renderStarterOptions();
+    showScreen('select');
+};
+
+function renderStarterOptions() {
+    starterOptionsContainer.innerHTML = '';
+    const charSelectTitle = document.getElementById('char-select-title');
+    
+    if (gameMode === 'adventure') {
+        charSelectTitle.textContent = "Choose your Partner!";
+        Object.keys(MATHMONS).forEach(key => {
+            const mon = MATHMONS[key];
+            const card = document.createElement('div');
+            card.className = 'starter-card bg-gray-700 p-4 rounded-lg border-4 border-transparent cursor-pointer';
+            card.dataset.starterKey = key;
+            card.innerHTML = `<img src="${getSpriteUrl(mon.id)}" class="h-20 w-20 mx-auto mb-2"><p class="font-pixel text-sm">${mon.name}</p>`;
+            card.addEventListener('click', () => selectStarter(key, card));
+            starterOptionsContainer.appendChild(card);
+        });
+    } else { // Legendary Mode
+        charSelectTitle.textContent = "Choose your Legend!";
+        Object.keys(MATHMONS).forEach(key => {
+            const mon = MATHMONS[key];
+            const finalEvo = mon.evolutions[mon.evolutions.length - 1];
+            const card = document.createElement('div');
+            card.className = 'starter-card bg-gray-700 p-4 rounded-lg border-4 border-transparent cursor-pointer';
+            card.dataset.starterKey = key;
+            card.innerHTML = `<img src="${getSpriteUrl(finalEvo.id)}" class="h-20 w-20 mx-auto mb-2"><p class="font-pixel text-sm">${finalEvo.name}</p>`;
+            card.addEventListener('click', () => selectStarter(key, card));
+            starterOptionsContainer.appendChild(card);
+        });
+    }
+}
+
+function selectStarter(key, cardElement) {
+    player.starterKey = key;
+    document.querySelectorAll('.starter-card').forEach(c => c.classList.remove('selected'));
+    cardElement.classList.add('selected');
+    confirmStarterBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-500', 'border-gray-700');
+    confirmStarterBtn.classList.add('bg-green-500', 'border-green-700');
+}
+
+window.showScreen = (screenId) => {
+    Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+    screens[screenId].classList.remove('hidden');
+    document.getElementById('home-btn').classList.toggle('hidden', screenId === 'mode');
+    if (screenId === 'menu') updateMainMenu();
+}
+
+function updateMainMenu() {
+    const currentEvo = player.mathmon.evolutions[player.evolutionStage];
+    document.getElementById('menu-sprite').src = getSpriteUrl(currentEvo.id);
+    document.getElementById('menu-pokemon-name').textContent = currentEvo.name;
+    document.getElementById('menu-level').textContent = `Stage: ${player.evolutionStage + 1}`;
+    document.getElementById('wins-display').textContent = `Wins: ${player.wins}`;
+    trainingBoostDisplay.textContent = player.trainingBoost ? `Training Boost: +${player.trainingBoost} HP` : '';
+    
+    const challengeTitle = document.getElementById('challenge-title');
+    const menuButtons = document.getElementById('main-menu-buttons');
+    const existingReadingBtn = document.getElementById('reading-quest-btn');
+    if(existingReadingBtn) existingReadingBtn.remove();
+
+    if (gameMode === 'adventure') {
+         if (player.wins >= 10) { challengeTitle.textContent = "You are the Champion!"; startBattleBtn.classList.add('hidden'); } 
+         else if (player.wins === 9) { challengeTitle.textContent = "Challenge the Champion!"; startBattleBtn.classList.remove('hidden'); } 
+         else if (player.wins >= 7) { challengeTitle.textContent = "The Elite Four!"; startBattleBtn.classList.remove('hidden'); } 
+         else { challengeTitle.textContent = "Next Challenge"; startBattleBtn.classList.remove('hidden'); }
+         
+         const readingBtn = document.createElement('button');
+         readingBtn.id = 'reading-quest-btn';
+         readingBtn.className = 'btn-action w-full bg-blue-500 hover:bg-blue-600 font-pixel p-4 rounded-lg border-b-8 border-blue-700';
+         readingBtn.textContent = 'Reading Quest';
+         readingBtn.onclick = () => initializeReadingQuest();
+         menuButtons.appendChild(readingBtn);
+
+    } else { // Legendary Mode
+        if (player.wins >= 10) { challengeTitle.textContent = "You are a Legend!"; startBattleBtn.classList.add('hidden'); }
+        else { challengeTitle.textContent = `Boss ${player.wins + 1} / 10`; startBattleBtn.classList.remove('hidden'); }
+    }
+}
+
+// --- Game Flow ---
+function initializeBattle() {
+    isPlayerTurn = true;
+    player.currentHp = player.mathmon.evolutions[player.evolutionStage].hp + (player.trainingBoost || 0);
+    player.trainingBoost = 0; // Use the boost
+    
+    if (gameMode === 'adventure') {
+        if (player.wins === 9) { enemy = { ...LEGENDARIES.mew }; } 
+        else if (player.wins >= 7) { 
+            const eliteFour = ['mewtwo', 'lugia', 'rayquaza', 'groudon', 'kyogre', 'dialga', 'palkia', 'giratina'];
+            const bossKey = eliteFour[Math.floor(Math.random() * eliteFour.length)];
+            enemy = { ...LEGENDARIES[bossKey] };
+        } else {
+            const enemyOptions = Object.keys(MATHMONS).filter(k => k !== player.starterKey);
+            const enemyKey = enemyOptions[Math.floor(Math.random() * enemyOptions.length)];
+            const enemyData = MATHMONS[enemyKey];
+            let enemyEvoStage = (player.wins >= 4) ? 1 : 0;
+            enemyEvoStage = Math.min(enemyEvoStage, enemyData.evolutions.length - 1);
+            enemy = { ...enemyData.evolutions[enemyEvoStage] };
+        }
+    } else { // Legendary Mode
+        const legendGauntlet = ['mewtwo', 'lugia', 'rayquaza', 'groudon', 'kyogre', 'dialga', 'palkia', 'giratina', 'mew', 'arceus'];
+        const bossKey = legendGauntlet[player.wins];
+        enemy = { ...LEGENDARIES[bossKey] };
+    }
+    
+    enemy.currentHp = enemy.hp;
+    battleScene.className = 'battle-scene w-full aspect-[4/3] rounded-lg mb-4 relative ';
+    const isLegendaryBattle = Object.values(LEGENDARIES).some(l => l.name === enemy.name);
+    if(isLegendaryBattle) {
+        battleScene.classList.add('bg-legendary', 'fx-move');
+    } else {
+        battleScene.classList.add(BACKGROUNDS[Math.floor(Math.random() * (BACKGROUNDS.length -1))]);
+        battleScene.classList.remove('fx-move');
+    }
+
+    updateBattleUI();
+    displayMessage(`A wild ${enemy.name} appeared!`);
+    displayMoves();
+    showScreen('battle');
+}
+
+// --- Battle Logic ---
+function updateBattleUI() {
+    const playerEvo = player.mathmon.evolutions[player.evolutionStage];
+    const maxHp = playerEvo.hp + (player.trainingBoost || 0);
+    playerNameEl.textContent = playerEvo.name;
+    playerHpTextEl.textContent = `HP: ${player.currentHp}/${maxHp}`;
+    playerHpBarEl.style.width = `${(player.currentHp / maxHp) * 100}%`;
+    playerSpriteEl.src = getSpriteUrl(playerEvo.id);
+    updateHealthBarColor(playerHpBarEl, player.currentHp, maxHp);
+
+    enemyNameEl.textContent = enemy.name;
+    enemyHpTextEl.textContent = `HP: ${enemy.currentHp}/${enemy.hp}`;
+    enemyHpBarEl.style.width = `${(enemy.currentHp / enemy.hp) * 100}%`;
+    enemySpriteEl.src = getSpriteUrl(enemy.id);
+    updateHealthBarColor(enemyHpBarEl, enemy.currentHp, enemy.hp);
+}
+
+function displayMessage(msg) { gameMessageEl.textContent = msg; }
+
+function displayMoves() {
+    movesContainerEl.innerHTML = '';
+    player.mathmon.moveset.forEach(moveKey => {
+        const move = ALL_MOVES[moveKey];
+        const button = document.createElement('button');
+        button.className = 'btn-move bg-gray-200 text-gray-800 p-3 rounded-md text-center shadow-md font-semibold text-sm';
+        button.textContent = move.name;
+        button.onclick = () => handleMoveSelection(move);
+        movesContainerEl.appendChild(button);
+    });
+}
+
+function handleMoveSelection(move) {
+    if (!isPlayerTurn) return;
+    let difficultyLevel = 1; 
+    if (gameMode === 'adventure') {
+        if (player.wins >= 4) difficultyLevel = 2; 
+        if (player.wins >= 7) difficultyLevel = 3; 
+    } else {
+        difficultyLevel = 4;
+    }
+    
+    currentQuestion = generateProblem(difficultyLevel, move.type);
+    displayMessage(currentQuestion.text);
+    questionStartTime = performance.now();
+    
+    movesContainerEl.innerHTML = '';
+    currentQuestion.choices.forEach(choice => {
+        const button = document.createElement('button');
+        button.className = 'btn-move bg-yellow-400 text-gray-800 p-3 rounded-md text-center shadow-md font-bold text-xl';
+        button.textContent = choice;
+        button.onclick = () => submitAnswer(choice);
+        movesContainerEl.appendChild(button);
+    });
+}
+
+function submitAnswer(choice) {
+    const timeTaken = performance.now() - questionStartTime;
+    const isCorrect = choice === currentQuestion.answer;
+    const isCrit = isCorrect && timeTaken <= CRIT_WINDOW_MS;
+
+    if (isCorrect) {
+        playerAttack(isCrit);
+    } else {
+        displayMessage(`Oops! The correct answer was ${currentQuestion.answer}.`);
+        setTimeout(enemyTurn, 1500);
+    }
+}
+
+function playerAttack(isCrit) {
+    isPlayerTurn = false;
+    let damage = 30 + (player.evolutionStage * 10) + Math.floor(Math.random() * 10) + (currentQuestion.difficulty * 5);
+    if (isCrit) {
+        damage = Math.floor(damage * 1.5);
+        showCritAnimation();
+    }
+    enemy.currentHp = Math.max(0, enemy.currentHp - damage);
+    displayMessage(`${player.mathmon.evolutions[player.evolutionStage].name} attacks! ${isCrit ? 'A critical hit!' : ''}`);
+    
+    playerSpriteEl.classList.add('attack-anim');
+    setTimeout(() => {
+        playerSpriteEl.classList.remove('attack-anim');
+        enemySpriteEl.classList.add('hit-anim');
+        updateBattleUI();
+        setTimeout(() => enemySpriteEl.classList.remove('hit-anim'), 300);
+    }, 400);
+
+    setTimeout(() => {
+        if (enemy.currentHp <= 0) endGame(true);
+        else enemyTurn();
+    }, 1500);
+}
+
+function enemyTurn() {
+    let damage = 20 + (Math.min(player.evolutionStage, 2) * 10) + Math.floor(Math.random() * 10);
+    if (player.wins >= 7 || gameMode === 'legendary') damage += 15;
+    player.currentHp = Math.max(0, player.currentHp - damage);
+    displayMessage(`${enemy.name} attacks back!`);
+
+    enemySpriteEl.classList.add('attack-anim');
+    setTimeout(() => {
+        enemySpriteEl.classList.remove('attack-anim');
+        playerSpriteEl.classList.add('hit-anim');
+        updateBattleUI();
+        setTimeout(() => playerSpriteEl.classList.remove('hit-anim'), 300);
+    }, 400);
+
+    setTimeout(() => {
+        if (player.currentHp <= 0) endGame(false);
+        else {
+            isPlayerTurn = true;
+            displayMessage('Your turn! Choose a move.');
+            displayMoves();
+        }
+    }, 1500);
+}
+
+function endGame(playerWon) {
+    let evolutionOccurred = false;
+    if (playerWon) {
+        player.wins++;
+        resultMessageEl.textContent = 'You Win!';
+        resultSubtextEl.innerHTML = `You defeated ${enemy.name}!`;
+        enemySpriteEl.classList.add('faint-anim');
+        if (gameMode === 'adventure') {
+            evolutionOccurred = checkEvolution();
+        }
+    } else {
+        resultMessageEl.textContent = 'Game Over!';
+        resultSubtextEl.textContent = 'Better luck next time!';
+        playerSpriteEl.classList.add('faint-anim');
+    }
+    
+    if (!evolutionOccurred) {
+        resultModal.style.display = 'flex';
+    }
+}
+
+function checkEvolution() {
+    const currentEvo = player.mathmon.evolutions[player.evolutionStage];
+    if (currentEvo.evolutionWins !== null && player.wins === currentEvo.evolutionWins) {
+        const oldName = currentEvo.name;
+        const oldSpriteId = currentEvo.id;
+        player.evolutionStage++;
+        const newEvo = player.mathmon.evolutions[player.evolutionStage];
+        
+        resultMessageEl.textContent = "What?";
+        resultSubtextEl.innerHTML = `${oldName} is evolving!`;
+        
+        const evoContainer = document.createElement('div');
+        evoContainer.className = "flex justify-center items-center my-4";
+        const evoImg = document.createElement('img');
+        evoImg.src = getSpriteUrl(oldSpriteId);
+        evoImg.className = "mathmon-sprite h-32 w-32";
+        evoContainer.appendChild(evoImg);
+        resultSubtextEl.appendChild(evoContainer);
+        resultModal.style.display = 'flex';
+        evoImg.classList.add('evolution-anim');
+        
+        setTimeout(() => {
+            evoImg.src = getSpriteUrl(newEvo.id);
+            resultMessageEl.textContent = "Congratulations!";
+            resultSubtextEl.innerHTML = `Your ${oldName} evolved into ${newEvo.name}!`;
+        }, 1500);
+        return true;
+    }
+    return false;
+}
+
+// --- Reading Quest Logic ---
+function initializeReadingQuest() {
+    readingState = { stage: 0, round: 0, wordsToSpell: [], battle: null };
+    loadReadingQuestion();
+    showScreen('reading');
+}
+
+function loadReadingQuestion() {
+    const currentStageData = READING_ADVENTURE[readingState.stage];
+    const playerEvo = player.mathmon.evolutions[player.evolutionStage];
+    readingTitle.textContent = `${currentStageData.guide.name}'s Challenge`;
+    readingGuideSprite.src = getSpriteUrl(currentStageData.guide.id);
+    readingPlayerSprite.src = getSpriteUrl(playerEvo.id);
+
+    readingBattleHpBars.classList.add('hidden');
+    readingSentence.classList.remove('hidden');
+    readingOptions.classList.remove('hidden');
+    readingSpellContainer.classList.add('hidden');
+    
+    if (readingState.round >= 3) {
+        startSpellingBattle();
+        return;
+    }
+
+    const quest = currentStageData.quests[readingState.round];
+    readingState.wordsToSpell.push(quest.a);
+    readingSentence.innerHTML = `${quest.s[0]} <span class="inline-block bg-gray-300 w-24 h-8 rounded">&nbsp;</span> ${quest.s[1] || ''}`;
+    readingOptions.innerHTML = '';
+    const shuffledOptions = [...quest.o].sort(() => 0.5 - Math.random());
+
+    shuffledOptions.forEach(option => {
+        const button = document.createElement('button');
+        button.className = "reading-option w-full bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-bold py-4 px-4 rounded-lg text-2xl border-b-4 border-yellow-600";
+        button.textContent = option;
+        button.onclick = () => checkReadingAnswer(option, quest.a);
+        readingOptions.appendChild(button);
+    });
+    readingFeedback.textContent = "Complete the sentence!";
+}
+
+function checkReadingAnswer(selected, correct) {
+    if (selected === correct) {
+        readingFeedback.textContent = "That's right!";
+        readingFeedback.style.color = '#27ae60';
+        readingState.round++;
+        setTimeout(loadReadingQuestion, 1000);
+    } else {
+        readingFeedback.textContent = "Try again!";
+        readingFeedback.style.color = '#c0392b';
+    }
+}
+
+function startSpellingBattle() {
+    const guide = READING_ADVENTURE[readingState.stage].guide;
+    readingState.battle = {
+        playerHp: 3,
+        enemyHp: 3,
+        words: [...readingState.wordsToSpell],
+        currentWord: null
+    };
+    
+    readingBattleHpBars.classList.remove('hidden');
+    updateReadingHp();
+    
+    nextSpellingWord();
+}
+
+function nextSpellingWord() {
+    if (readingState.battle.words.length === 0) {
+        readingFeedback.textContent = `You defeated ${READING_ADVENTURE[readingState.stage].guide.name}!`;
+        readingFeedback.style.color = '#27ae60';
+        setTimeout(advanceReadingStage, 1500);
+        return;
+    }
+
+    const word = readingState.battle.words.pop();
+    readingState.battle.currentWord = word;
+
+    readingSentence.classList.add('hidden');
+    readingOptions.classList.add('hidden');
+    readingSpellContainer.classList.remove('hidden');
+    
+    readingFeedback.textContent = `Spell Attack! Unscramble the word.`;
+    setupTapToPlace(word);
+}
+
+function setupTapToPlace(word) {
+    letterDropzones.innerHTML = '';
+    letterTiles.innerHTML = '';
+    const scrambledLetters = word.split('').sort(() => 0.5 - Math.random());
+
+    for (let i = 0; i < word.length; i++) {
+        const dropzone = document.createElement('div');
+        dropzone.className = 'letter-dropzone';
+        dropzone.dataset.index = i;
+        letterDropzones.appendChild(dropzone);
+    }
+
+    scrambledLetters.forEach((letter, index) => {
+        const tile = document.createElement('div');
+        tile.className = 'letter-tile';
+        tile.textContent = letter;
+        tile.dataset.id = `tile-${index}`;
+        letterTiles.appendChild(tile);
+        tile.addEventListener('click', () => {
+            if (tile.classList.contains('placed')) return;
+            const dropzones = document.querySelectorAll('#letter-dropzones .letter-dropzone');
+            const emptyZone = Array.from(dropzones).find(zone => !zone.firstChild);
+            if (emptyZone) {
+                emptyZone.appendChild(tile);
+                tile.classList.add('placed');
+                checkSpellingTap();
+            }
+        });
+    });
+}
+
+function checkSpellingTap() {
+    const dropzones = document.querySelectorAll('#letter-dropzones .letter-dropzone');
+    let spelledWord = '';
+    let allFilled = true;
+    dropzones.forEach(zone => {
+        if (zone.children.length > 0) {
+            spelledWord += zone.children[0].textContent;
+        } else {
+            allFilled = false;
+        }
+    });
+
+    if (allFilled) {
+        if (spelledWord === readingState.battle.currentWord) {
+            readingFeedback.textContent = "Correct! Attack!";
+            readingFeedback.style.color = '#27ae60';
+            readingState.battle.enemyHp--;
+        } else {
+            readingFeedback.textContent = `Not quite! ${READING_ADVENTURE[readingState.stage].guide.name} attacks!`;
+            readingFeedback.style.color = '#c0392b';
+            readingState.battle.playerHp--;
+        }
+
+        updateReadingHp();
+
+        if (readingState.battle.enemyHp <= 0) {
+            readingFeedback.textContent = `You defeated ${READING_ADVENTURE[readingState.stage].guide.name}!`;
+            setTimeout(advanceReadingStage, 1500);
+        } else if (readingState.battle.playerHp <= 0) {
+            readingFeedback.textContent = `Oh no! Try this stage again.`;
+            setTimeout(initializeReadingQuest, 1500);
+        } else {
+            setTimeout(nextSpellingWord, 1500);
+        }
+    }
+}
+
+function resetLetters() {
+    const dropzones = document.querySelectorAll('#letter-dropzones .letter-dropzone');
+    dropzones.forEach(zone => {
+        if (zone.firstChild) {
+            const tile = zone.firstChild;
+            tile.classList.remove('placed');
+            letterTiles.appendChild(tile);
+        }
+    });
+}
+
+function updateReadingHp() {
+    readingPlayerHp.style.width = `${(readingState.battle.playerHp / 3) * 100}%`;
+    readingEnemyHp.style.width = `${(readingState.battle.enemyHp / 3) * 100}%`;
+}
+
+function advanceReadingStage() {
+    const oldEvoStage = player.evolutionStage;
+    if (readingState.stage < 2) { // After Fairy and Psychic
+        if (player.evolutionStage < player.mathmon.evolutions.length -1) {
+            player.evolutionStage++;
+        }
+    }
+
+    readingState.stage++;
+    readingState.round = 0;
+    readingState.wordsToSpell = [];
+
+    if (readingState.stage >= READING_ADVENTURE.length) {
+        player.trainingBoost = (player.trainingBoost || 0) + 10;
+        readingTitle.textContent = "Quest Complete!";
+        readingFeedback.textContent = "You are a Reading Master! +10 HP Boost for your next battle!";
+        readingSpellContainer.classList.add('hidden');
+        readingOptions.innerHTML = `<button onclick="showScreen('menu')" class="btn-action w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-xl">Back to Menu</button>`;
+    } else {
+        if(player.evolutionStage > oldEvoStage) {
+            // Show evolution in the reading screen
+            const oldEvo = player.mathmon.evolutions[oldEvoStage];
+            const newEvo = player.mathmon.evolutions[player.evolutionStage];
+            readingFeedback.textContent = `What? ${oldEvo.name} is evolving!`;
+            readingPlayerSprite.classList.add('evolution-anim');
+            setTimeout(() => {
+                readingPlayerSprite.classList.remove('evolution-anim');
+                readingFeedback.textContent = `It evolved into ${newEvo.name}!`;
+                setTimeout(loadReadingQuestion, 2000);
+            }, 1500);
+        } else {
+            loadReadingQuestion();
+        }
+    }
+}
+
+
+// --- Utility Functions ---
+function generateProblem(level, type) {
+    let num1, num2, answer, text, difficulty = level;
+    
+    if (level === 1) { // Easy
+        if (type === 'add' || type === 'sub') { num1 = Math.floor(Math.random() * 10) + 1; num2 = Math.floor(Math.random() * 10) + 1; answer = num1 + num2; text = `${num1} + ${num2} = ?`; } 
+        else { num1 = Math.floor(Math.random() * 10) + 5; num2 = Math.floor(Math.random() * (num1-1)) + 1; answer = num1 - num2; text = `${num1} - ${num2} = ?`; }
+    } else if (level === 2) { // Medium
+        if (type === 'add' || type === 'sub') { num1 = Math.floor(Math.random() * 25) + 5; num2 = Math.floor(Math.random() * 25) + 5; answer = num1 + num2; text = `${num1} + ${num2} = ?`; } 
+        else { num1 = Math.floor(Math.random() * 8) + 2; num2 = Math.floor(Math.random() * 8) + 2; answer = num1 * num2; text = `${num1} × ${num2} = ?`; }
+    } else if (level === 3) { // Hard
+        if (type === 'mul' || type === 'add') { num1 = Math.floor(Math.random() * 11) + 5; num2 = Math.floor(Math.random() * 11) + 5; answer = num1 * num2; text = `${num1} × ${num2} = ?`; } 
+        else { num2 = Math.floor(Math.random() * 8) + 3; answer = Math.floor(Math.random() * 8) + 3; num1 = num2 * answer; text = `${num1} ÷ ${num2} = ?`; }
+    } else { // Legendary
+        const variable = 'x';
+        num1 = Math.floor(Math.random() * 10) + 2;
+        num2 = Math.floor(Math.random() * 10) + 2;
+        const offset = Math.floor(Math.random() * 10) - 5;
+        const result = num1 * num2 + offset;
+        answer = num2;
+        text = (offset >= 0) ? `${num1}${variable} + ${offset} = ${result}` : `${num1}${variable} - ${-offset} = ${result}`;
+        difficulty = 5;
+    }
+    
+    const choices = new Set([answer]);
+    while (choices.size < 4) {
+        const offset = (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 5) + 1);
+        const wrongAns = answer + offset;
+        if (wrongAns !== answer && wrongAns >= 0) choices.add(wrongAns);
+    }
+    return { text, answer, choices: Array.from(choices).sort((a, b) => a - b), difficulty };
+}
+
+function showCritAnimation() {
+    critOverlay.classList.remove('crit-hit-text');
+    void critOverlay.offsetWidth; 
+    critOverlay.classList.add('crit-hit-text');
+}
+
+function updateHealthBarColor(bar, current, max) {
+    const percentage = (current / max) * 100;
+    bar.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500');
+    if (percentage < 25) bar.classList.add('bg-red-500');
+    else if (percentage < 50) bar.classList.add('bg-yellow-500');
+    else bar.classList.add('bg-green-500');
+}
+
+// --- Event Listeners ---
+confirmStarterBtn.addEventListener('click', () => {
+    if (player.starterKey) {
+        player.mathmon = MATHMONS[player.starterKey];
+        player.wins = 0;
+        player.trainingBoost = 0;
+        player.evolutionStage = (gameMode === 'legendary') ? player.mathmon.evolutions.length - 1 : 0;
+        showScreen('menu');
+    }
+});
+startBattleBtn.addEventListener('click', initializeBattle);
+nextBattleBtn.addEventListener('click', () => {
+    resultModal.style.display = 'none';
+    playerSpriteEl.classList.remove('faint-anim');
+    enemySpriteEl.classList.remove('faint-anim');
+    showScreen('menu');
+});
+resetLettersBtn.addEventListener('click', resetLetters);
+
+// --- Initial load ---
+showScreen('mode');
+
+});
+</script>
+</body>
+</html>
